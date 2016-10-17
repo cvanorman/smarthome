@@ -7,29 +7,33 @@
  */
 package org.eclipse.smarthome.binding.hue.internal.discovery;
 
-import static org.eclipse.smarthome.binding.hue.HueBindingConstants.*;
+import static org.eclipse.smarthome.binding.hue.HueBindingConstants.BINDING_ID;
 
+import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.eclipse.smarthome.binding.hue.handler.CacheUpdatedListener;
 import org.eclipse.smarthome.binding.hue.handler.HueBridgeHandler;
 import org.eclipse.smarthome.binding.hue.handler.HueLightHandler;
-import org.eclipse.smarthome.binding.hue.handler.LightStatusListener;
+import org.eclipse.smarthome.binding.hue.internal.HueCache;
+import org.eclipse.smarthome.binding.hue.internal.HueGroup;
+import org.eclipse.smarthome.binding.hue.internal.HueItem;
+import org.eclipse.smarthome.binding.hue.internal.HueLight;
 import org.eclipse.smarthome.config.discovery.AbstractDiscoveryService;
 import org.eclipse.smarthome.config.discovery.DiscoveryResult;
 import org.eclipse.smarthome.config.discovery.DiscoveryResultBuilder;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.ThingUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
-
-import nl.q42.jue.FullLight;
-import nl.q42.jue.HueBridge;
+import com.google.common.collect.Maps;
+import com.philips.lighting.hue.listener.PHLightListener;
+import com.philips.lighting.model.PHBridgeResource;
+import com.philips.lighting.model.PHGroup;
+import com.philips.lighting.model.PHHueError;
+import com.philips.lighting.model.PHLight;
 
 /**
  * The {@link HueBridgeServiceTracker} tracks for hue lights which are connected
@@ -39,22 +43,12 @@ import nl.q42.jue.HueBridge;
  * @author Andre Fuechsel - changed search timeout, changed discovery result creation to support generic thing types
  * @author Thomas Höfer - Added representation
  */
-public class HueLightDiscoveryService extends AbstractDiscoveryService implements LightStatusListener {
+public class HueLightDiscoveryService extends AbstractDiscoveryService
+        implements CacheUpdatedListener, PHLightListener {
 
-    private final Logger logger = LoggerFactory.getLogger(HueLightDiscoveryService.class);
+    // private final Logger logger = LoggerFactory.getLogger(HueLightDiscoveryService.class);
 
     private final static int SEARCH_TIME = 60;
-    private final static String MODEL_ID = "modelId";
-
-    // @formatter:off
-    private final static Map<String, String> TYPE_TO_ZIGBEE_ID_MAP = new ImmutableMap.Builder<String, String>()
-            .put("on_off_light", "0000")
-            .put("dimmable_light", "0100")
-            .put("color_light", "0200")
-            .put("extended_color_light", "0210")
-            .put("color_temperature_light", "0220")
-            .put("dimmable_plug_in_unit", "0100").build();
-    // @formatter:on
 
     private HueBridgeHandler hueBridgeHandler;
 
@@ -64,13 +58,13 @@ public class HueLightDiscoveryService extends AbstractDiscoveryService implement
     }
 
     public void activate() {
-        hueBridgeHandler.registerLightStatusListener(this);
+        hueBridgeHandler.registerCacheUpdatedListener(this);
     }
 
     @Override
     public void deactivate() {
         removeOlderResults(new Date().getTime());
-        hueBridgeHandler.unregisterLightStatusListener(this);
+        hueBridgeHandler.unregisterCacheUpdatedListener(this);
     }
 
     @Override
@@ -80,14 +74,8 @@ public class HueLightDiscoveryService extends AbstractDiscoveryService implement
 
     @Override
     public void startScan() {
-        List<FullLight> lights = hueBridgeHandler.getFullLights();
-        if (lights != null) {
-            for (FullLight l : lights) {
-                onLightAddedInternal(l);
-            }
-        }
         // search for unpaired lights
-        hueBridgeHandler.startSearch();
+        hueBridgeHandler.startSearch(this);
     }
 
     @Override
@@ -96,66 +84,65 @@ public class HueLightDiscoveryService extends AbstractDiscoveryService implement
         removeOlderResults(getTimestampOfLastScan());
     }
 
-    @Override
-    public void onLightAdded(HueBridge bridge, FullLight light) {
-        onLightAddedInternal(light);
-    }
-
-    private void onLightAddedInternal(FullLight light) {
-        ThingUID thingUID = getThingUID(light);
-        ThingTypeUID thingTypeUID = getThingTypeUID(light);
-
-        String modelId = light.getModelID().replaceAll(HueLightHandler.NORMALIZE_ID_REGEX, "_");
-
-        if (thingUID != null && thingTypeUID != null) {
-            ThingUID bridgeUID = hueBridgeHandler.getThing().getUID();
-            Map<String, Object> properties = new HashMap<>(1);
-            properties.put(LIGHT_ID, light.getId());
-            properties.put(MODEL_ID, modelId);
-
-            /*
-             * TODO retrieve the light´s unique id (available since Hue bridge versions > 1.3) and set the mac address
-             * as discovery result representation. For this purpose the jue library has to be modified.
-             */
-
-            DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(thingUID).withThingType(thingTypeUID)
-                    .withProperties(properties).withBridge(bridgeUID).withLabel(light.getName()).build();
-
-            thingDiscovered(discoveryResult);
-        } else {
-            logger.debug("discovered unsupported light of type '{}' and model '{}' with id {}", light.getType(),
-                    modelId, light.getId());
-        }
-    }
-
-    @Override
-    public void onLightRemoved(HueBridge bridge, FullLight light) {
-        ThingUID thingUID = getThingUID(light);
-
-        if (thingUID != null) {
-            thingRemoved(thingUID);
-        }
-    }
-
-    @Override
-    public void onLightStateChanged(HueBridge bridge, FullLight light) {
-        // nothing to do
-    }
-
-    private ThingUID getThingUID(FullLight light) {
+    private void onHueItemAddedInternal(HueItem hueItem) {
         ThingUID bridgeUID = hueBridgeHandler.getThing().getUID();
-        ThingTypeUID thingTypeUID = getThingTypeUID(light);
+        ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, hueItem.getTypeId());
+        ThingUID thingUID = new ThingUID(thingTypeUID, bridgeUID, hueItem.getId());
+        Map<String, Object> properties = Maps.<String, Object> newHashMap(hueItem.getProperties());
+        DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(thingUID).withThingType(thingTypeUID)
+                .withProperties(properties).withBridge(bridgeUID).withLabel(hueItem.getName()).build();
 
-        if (thingTypeUID != null && getSupportedThingTypes().contains(thingTypeUID)) {
-            return new ThingUID(thingTypeUID, bridgeUID, light.getId());
-        } else {
-            return null;
-        }
+        thingDiscovered(discoveryResult);
     }
 
-    private ThingTypeUID getThingTypeUID(FullLight light) {
-        String thingTypeId = TYPE_TO_ZIGBEE_ID_MAP
-                .get(light.getType().replaceAll(HueLightHandler.NORMALIZE_ID_REGEX, "_").toLowerCase());
-        return thingTypeId != null ? new ThingTypeUID(BINDING_ID, thingTypeId) : null;
+    @Override
+    public void onError(int code, String message) {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void onStateUpdate(Map<String, String> successAttribute, List<PHHueError> errorAttribute) {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void onSuccess() {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void onReceivingLightDetails(PHLight light) {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void onReceivingLights(List<PHBridgeResource> lights) {
+        // TODO Auto-generated method stub
+    }
+
+    @Override
+    public void onSearchComplete() {
+        // TODO Auto-generated method stub
+    }
+
+    @Override
+    public void cacheUpdated(HueCache cache) {
+        // removeOlderResults(System.currentTimeMillis());
+        Collection<PHLight> lights = hueBridgeHandler.getFullLights();
+        Collection<PHGroup> groups = hueBridgeHandler.getFullGroups();
+
+        for (PHLight l : lights) {
+            onHueItemAddedInternal(new HueLight(l));
+        }
+
+        if (groups != null) {
+            for (PHGroup g : groups) {
+                onHueItemAddedInternal(new HueGroup(g));
+            }
+        }
     }
 }

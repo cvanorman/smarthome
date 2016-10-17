@@ -19,13 +19,6 @@
 			<channel id="alert" typeId="alert" />
 			<channel id="effect" typeId="effect" />
 		</channels>
-		
-		<config-description>
-			<parameter name="lightId" type="text">
-				<label>Light ID</label>
-				<description>The light identifier identifies one certain hue light.</description>
-				<required>true</required>
-			</parameter>
-		</config-description>
+
 	</thing-type>
 </thing:thing-descriptions>
