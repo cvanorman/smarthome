@@ -12,7 +12,7 @@ public class HueGroupHandlerFactory implements HueHandlerFactory {
 
     @Override
     public boolean supports(ThingTypeUID thingTypeUID) {
-        return HueBindingConstants.THING_TYPE_GROUP.equals(thingTypeUID);
+        return HueGroup.getSupportedThingTypes().contains(thingTypeUID);
     }
 
     @Override
@@ -24,5 +24,4 @@ public class HueGroupHandlerFactory implements HueHandlerFactory {
     public ThingUID createThingUID(ThingTypeUID thingTypeUID, Configuration configuration, String bridgeId) {
         return new ThingUID(thingTypeUID, (String) configuration.get(HueBindingConstants.LIGHT_ID), bridgeId);
     }
-
 }

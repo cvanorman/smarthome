@@ -2,10 +2,13 @@ package org.eclipse.smarthome.binding.hue.internal;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.smarthome.binding.hue.HueBindingConstants;
 import org.eclipse.smarthome.core.thing.Thing;
+import org.eclipse.smarthome.core.thing.ThingTypeUID;
 
+import com.google.common.collect.ImmutableSet;
 import com.philips.lighting.model.PHGroup;
 
 public class HueGroup implements HueItem {
@@ -32,13 +35,17 @@ public class HueGroup implements HueItem {
     }
 
     @Override
-    public String getTypeId() {
-        return "0300";
+    public ThingTypeUID getThingTypeUID() {
+        return HueBindingConstants.THING_TYPE_GROUP;
     }
 
     @Override
     public Map<String, String> getProperties() {
         return properties;
+    }
+
+    public static Set<ThingTypeUID> getSupportedThingTypes() {
+        return new ImmutableSet.Builder<ThingTypeUID>().add(HueBindingConstants.THING_TYPE_GROUP).build();
     }
 
 }

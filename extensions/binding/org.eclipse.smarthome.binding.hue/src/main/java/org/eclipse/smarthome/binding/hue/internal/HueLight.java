@@ -4,22 +4,26 @@ import static org.eclipse.smarthome.binding.hue.HueBindingConstants.LIGHT_ID;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
+import org.eclipse.smarthome.binding.hue.HueBindingConstants;
 import org.eclipse.smarthome.core.thing.Thing;
+import org.eclipse.smarthome.core.thing.ThingTypeUID;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.philips.lighting.model.PHLight;
 
 public class HueLight implements HueItem {
 
     // @formatter:off
-    private final static Map<String, String> TYPE_TO_ZIGBEE_ID_MAP = new ImmutableMap.Builder<String, String>()
-            .put("on_off_light", "0000")
-            .put("dim_light", "0100")
-            .put("color_light", "0200")
-            .put("ct_color_light", "0210")
-            .put("ct_light", "0220")
-            .put("dimmable_plug_in_unit", "0100")
+    private final static Map<String, ThingTypeUID> TYPE_TO_ZIGBEE_ID_MAP = new ImmutableMap.Builder<String, ThingTypeUID>()
+            .put("on_off_light", HueBindingConstants.THING_TYPE_ON_OFF_LIGHT)
+            .put("dim_light", HueBindingConstants.THING_TYPE_DIMMABLE_LIGHT)
+            .put("color_light",HueBindingConstants.THING_TYPE_COLOR_LIGHT)
+            .put("ct_color_light", HueBindingConstants.THING_TYPE_EXTENDED_COLOR_LIGHT)
+            .put("ct_light",HueBindingConstants.THING_TYPE_COLOR_TEMPERATURE_LIGHT)
+            .put("dimmable_plug_in_unit", HueBindingConstants.THING_TYPE_DIMMABLE_LIGHT)
             .build();
     // @formatter:on
 
@@ -28,7 +32,7 @@ public class HueLight implements HueItem {
 
     private PHLight fullLight;
     private Map<String, String> properties = new HashMap<>();
-    private String thingTypeId;
+    private ThingTypeUID thingTypeId;
     private String modelId;
 
     public HueLight(PHLight fullLight) {
@@ -56,7 +60,7 @@ public class HueLight implements HueItem {
     }
 
     @Override
-    public String getTypeId() {
+    public ThingTypeUID getThingTypeUID() {
         return thingTypeId;
     }
 
@@ -69,4 +73,7 @@ public class HueLight implements HueItem {
         return OSRAM_PAR16_50_TW_MODEL_ID.equals(modelId);
     }
 
+    public static Set<ThingTypeUID> getSupportedThingTypes() {
+        return new ImmutableSet.Builder<ThingTypeUID>().addAll(TYPE_TO_ZIGBEE_ID_MAP.values()).build();
+    }
 }

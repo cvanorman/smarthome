@@ -34,7 +34,7 @@ public class HueBindingConstants {
     public final static ThingTypeUID THING_TYPE_EXTENDED_COLOR_LIGHT = new ThingTypeUID(BINDING_ID, "0210");
     public final static ThingTypeUID THING_TYPE_DIMMABLE_LIGHT = new ThingTypeUID(BINDING_ID, "0100");
 
-    public final static ThingTypeUID THING_TYPE_GROUP = new ThingTypeUID(BINDING_ID, "0300");
+    public final static ThingTypeUID THING_TYPE_GROUP = new ThingTypeUID(BINDING_ID, "group");
 
     // List all channels
     public static final String CHANNEL_COLORTEMPERATURE = "color_temperature";

@@ -7,8 +7,6 @@
  */
 package org.eclipse.smarthome.binding.hue.internal.discovery;
 
-import static org.eclipse.smarthome.binding.hue.HueBindingConstants.BINDING_ID;
-
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -17,7 +15,6 @@ import java.util.Set;
 
 import org.eclipse.smarthome.binding.hue.handler.CacheUpdatedListener;
 import org.eclipse.smarthome.binding.hue.handler.HueBridgeHandler;
-import org.eclipse.smarthome.binding.hue.handler.HueLightHandler;
 import org.eclipse.smarthome.binding.hue.internal.HueCache;
 import org.eclipse.smarthome.binding.hue.internal.HueGroup;
 import org.eclipse.smarthome.binding.hue.internal.HueItem;
@@ -29,6 +26,7 @@ import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.ThingUID;
 
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.philips.lighting.hue.listener.PHLightListener;
 import com.philips.lighting.model.PHBridgeResource;
 import com.philips.lighting.model.PHGroup;
@@ -69,7 +67,7 @@ public class HueLightDiscoveryService extends AbstractDiscoveryService
 
     @Override
     public Set<ThingTypeUID> getSupportedThingTypes() {
-        return HueLightHandler.SUPPORTED_THING_TYPES;
+        return Sets.union(HueGroup.getSupportedThingTypes(), HueLight.getSupportedThingTypes());
     }
 
     @Override
@@ -86,7 +84,7 @@ public class HueLightDiscoveryService extends AbstractDiscoveryService
 
     private void onHueItemAddedInternal(HueItem hueItem) {
         ThingUID bridgeUID = hueBridgeHandler.getThing().getUID();
-        ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, hueItem.getTypeId());
+        ThingTypeUID thingTypeUID = hueItem.getThingTypeUID();
         ThingUID thingUID = new ThingUID(thingTypeUID, bridgeUID, hueItem.getId());
         Map<String, Object> properties = Maps.<String, Object> newHashMap(hueItem.getProperties());
         DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(thingUID).withThingType(thingTypeUID)
